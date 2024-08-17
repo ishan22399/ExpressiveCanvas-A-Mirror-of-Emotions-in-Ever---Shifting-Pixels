@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manipulate Image</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        let socket;
+
+        function startManipulation() {
+            const imageElement = document.getElementById('image-to-manipulate');
+            const filename = imageElement.getAttribute('data-filename');
+            socket = io();
+
+            socket.on('connect', function() {
+                console.log('WebSocket connection established');
+                socket.emit('emotion-detection', { action: 'start',var:'T', filename: filename });
+            });
+
+            socket.on('update', function(data) {
+                imageElement.src = data.image_src;
+            });
+
+            socket.on('done', function() {
+                console.log('Emotion detection completed');
+                setTimeout(() => {
+                    console.log('Starting image manipulation...');
+                    socket.emit('start-manipulation');
+                }, 5000); // Start image manipulation after 10 seconds
+            });
+        }
+
+    function stopManipulation() {
+        socket.emit('emotion-detection', { action: 'stop', var:'F', filename: '{{ filename }}'});
+        console.log('Manipulation stopped');
+        window.location.href = '/';  // Redirect to the index page
+    }
+</script>
+    
+</head>
+<body>
+    <h1>Manipulating Image</h1>
+    <img id="image-to-manipulate" src="/uploads/{{ filename }}" data-filename="{{ filename }}" alt="Image to Manipulate" style="max-width: 100%;">
+    <br>
+    <button onclick="startManipulation()">Start Manipulation</button>
+    <button onclick="stopManipulation()">End</button>
+</body>
+</html>
