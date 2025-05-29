@@ -2,47 +2,897 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Manipulate Image</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Expression - ExpressiveCanvas</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Dynamic background */
+        .dynamic-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            transition: all 2s ease;
+        }
+
+        .emotion-happy { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .emotion-sad { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .emotion-angry { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+        .emotion-surprise { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+        .emotion-fear { background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%); }
+        .emotion-disgust { background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%); }
+        .emotion-neutral { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+
+        /* Header */
+        .header {
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(15px);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .nav-brand {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(231, 76, 60, 0.2);
+            border-radius: 20px;
+            color: white;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #e74c3c;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .emotion-display {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            color: white;
+            font-weight: 600;
+            min-width: 120px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        /* Main Content */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 2rem;
+            min-height: calc(100vh - 80px);
+        }
+
+        /* Image Section */
+        .image-section {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .image-container {
+            position: relative;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 2rem;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+            transition: all 0.4s ease;
+            max-width: 100%;
+        }
+
+        .image-container.processing {
+            animation: processingGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes processingGlow {
+            0% { box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2); }
+            100% { box-shadow: 0 25px 50px rgba(52, 152, 219, 0.4), 0 0 30px rgba(52, 152, 219, 0.3); }
+        }
+
+        #image-to-manipulate {
+            max-width: 100%;
+            max-height: 70vh;
+            height: auto;
+            border-radius: 15px;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: brightness(1) contrast(1) saturate(1);
+        }
+
+        .image-loading {
+            filter: blur(2px) brightness(0.7);
+            transform: scale(0.98);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 10;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loader {
+            width: 80px;
+            height: 80px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .loading-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            text-align: center;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 2rem;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            height: fit-content;
+            position: sticky;
+            top: 100px;
+        }
+
+        .panel-title {
+            color: #2c3e50;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .control-btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .control-btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-start {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            color: white;
+            box-shadow: 0 10px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        .btn-start:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(39, 174, 96, 0.4);
+        }
+
+        .btn-stop {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+            box-shadow: 0 10px 20px rgba(231, 76, 60, 0.3);
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(231, 76, 60, 0.4);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* Status Messages */
+        .status-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid rgba(52, 152, 219, 0.1);
+        }
+
+        .status-message {
+            background: linear-gradient(45deg, rgba(52, 152, 219, 0.1), rgba(155, 89, 182, 0.1));
+            padding: 1rem;
+            border-radius: 15px;
+            color: #2c3e50;
+            font-weight: 500;
+            text-align: center;
+            border-left: 4px solid #3498db;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Performance Metrics */
+        .metrics-section {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: rgba(52, 152, 219, 0.05);
+            border-radius: 15px;
+            border: 1px solid rgba(52, 152, 219, 0.1);
+        }
+
+        .metrics-title {
+            color: #2c3e50;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            color: #34495e;
+            font-size: 0.9rem;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #3498db;
+        }
+
+        /* Emotion History */
+        .emotion-history {
+            margin-top: 2rem;
+        }
+
+        .history-title {
+            color: #2c3e50;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .emotion-timeline {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .emotion-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            animation: slideInRight 0.3s ease;
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .emotion-emoji {
+            font-size: 1.2rem;
+        }
+
+        .emotion-time {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+            
+            .control-panel {
+                position: static;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 1rem;
+            }
+            
+            .image-container,
+            .control-panel {
+                padding: 1.5rem;
+            }
+            
+            .nav-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .status-bar {
+                gap: 1rem;
+            }
+        }
+
+        /* Error states */
+        .error-message {
+            background: linear-gradient(45deg, rgba(231, 76, 60, 0.1), rgba(192, 57, 43, 0.1));
+            border-left: 4px solid #e74c3c;
+            color: #c0392b;
+        }
+
+        .success-message {
+            background: linear-gradient(45deg, rgba(39, 174, 96, 0.1), rgba(46, 204, 113, 0.1));
+            border-left: 4px solid #27ae60;
+            color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <!-- Dynamic Background -->
+    <div class="dynamic-bg emotion-neutral" id="dynamicBg"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="nav-content">
+            <a href="/" class="nav-brand">
+                <i class="fas fa-palette"></i> ExpressiveCanvas
+            </a>
+            <div class="status-bar">
+                <div class="live-indicator" id="liveIndicator" style="display: none;">
+                    <div class="live-dot"></div>
+                    <span>LIVE</span>
+                </div>
+                <div class="emotion-display" id="emotionDisplay">
+                    <i class="fas fa-face-smile"></i> Neutral
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Image Section -->
+        <div class="image-section">
+            <div class="image-container" id="imageContainer">
+                <img id="image-to-manipulate" src="/uploads/{{ filename }}" data-filename="{{ filename }}" alt="Image to Manipulate">
+                
+                <!-- Loading Overlay -->
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div class="loader"></div>
+                    <div class="loading-text" id="loadingText">Initializing...</div>
+                    <div class="loading-subtitle" id="loadingSubtitle">Preparing emotion detection</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h2 class="panel-title">
+                <i class="fas fa-sliders-h"></i> Expression Controls
+            </h2>
+            
+            <div class="controls">
+                <button id="startButton" class="control-btn btn-start" onclick="startManipulation()">
+                    <i class="fas fa-play"></i> Start Expression
+                </button>
+                <button id="stopButton" class="control-btn btn-stop" onclick="stopManipulation()" disabled>
+                    <i class="fas fa-stop"></i> End & Return
+                </button>
+            </div>
+
+            <!-- Status Section -->
+            <div class="status-section">
+                <div class="status-message" id="statusMessage">
+                    Click "Start Expression" to begin emotion-driven transformation
+                </div>
+            </div>
+
+            <!-- Performance Metrics -->
+            <div class="metrics-section" id="metricsSection" style="display: none;">
+                <div class="metrics-title">
+                    <i class="fas fa-chart-line"></i> Performance
+                </div>
+                <div class="metric-item">
+                    <span>Emotion Detection:</span>
+                    <span class="metric-value" id="emotionTime">-</span>
+                </div>
+                <div class="metric-item">
+                    <span>Image Processing:</span>
+                    <span class="metric-value" id="processingTime">-</span>
+                </div>
+                <div class="metric-item">
+                    <span>Total Time:</span>
+                    <span class="metric-value" id="totalTime">-</span>
+                </div>
+            </div>
+
+            <!-- Emotion History -->
+            <div class="emotion-history" id="emotionHistory" style="display: none;">
+                <div class="history-title">
+                    <i class="fas fa-history"></i> Recent Emotions
+                </div>
+                <div class="emotion-timeline" id="emotionTimeline">
+                    <!-- Emotion entries will be added dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let socket;
+        let originalImageSrc = '';
+        let emotionHistory = [];
+        let isProcessing = false;
+
+        const emotionEmojis = {
+            'happy': '😊',
+            'sad': '😢',
+            'angry': '😠',
+            'surprise': '😲',
+            'fear': '😨',
+            'disgust': '🤢',
+            'neutral': '😐'
+        };
+
+        const emotionMessages = {
+            'happy': 'Spreading joy and warmth',
+            'sad': 'Embracing melancholy tones',
+            'angry': 'Channeling intense energy',
+            'surprise': 'Capturing wonder and amazement',
+            'fear': 'Processing uncertainty',
+            'disgust': 'Filtering negative vibes',
+            'neutral': 'Maintaining balance'
+        };
+
+        function showLoader(show, text = 'Processing...', subtitle = '') {
+            const overlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            const loadingSubtitle = document.getElementById('loadingSubtitle');
+            const imageContainer = document.getElementById('imageContainer');
+            
+            overlay.classList.toggle('show', show);
+            imageContainer.classList.toggle('processing', show);
+            
+            if (show) {
+                loadingText.textContent = text;
+                loadingSubtitle.textContent = subtitle;
+            }
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('statusMessage');
+            statusElement.textContent = message;
+            statusElement.className = 'status-message';
+            
+            if (type === 'error') {
+                statusElement.classList.add('error-message');
+            } else if (type === 'success') {
+                statusElement.classList.add('success-message');
+            }
+        }
+
+        function updateEmotion(emotion) {
+            const emotionDisplay = document.getElementById('emotionDisplay');
+            const dynamicBg = document.getElementById('dynamicBg');
+            
+            // Update emotion display
+            emotionDisplay.innerHTML = `${emotionEmojis[emotion] || '😐'} ${emotion.charAt(0).toUpperCase() + emotion.slice(1)}`;
+            
+            // Change background
+            dynamicBg.className = `dynamic-bg emotion-${emotion}`;
+            
+            // Add to history
+            addEmotionToHistory(emotion);
+            
+            // Update status message
+            updateStatus(emotionMessages[emotion] || 'Processing emotion...', 'success');
+        }
+
+        function addEmotionToHistory(emotion) {
+            const timeline = document.getElementById('emotionTimeline');
+            const historySection = document.getElementById('emotionHistory');
+            
+            // Show history section
+            historySection.style.display = 'block';
+            
+            // Create new entry
+            const entry = document.createElement('div');
+            entry.className = 'emotion-entry';
+            entry.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="emotion-emoji">${emotionEmojis[emotion] || '😐'}</span>
+                    <span>${emotion.charAt(0).toUpperCase() + emotion.slice(1)}</span>
+                </div>
+                <span class="emotion-time">${new Date().toLocaleTimeString()}</span>
+            `;
+            
+            // Add to beginning of timeline
+            timeline.insertBefore(entry, timeline.firstChild);
+            
+            // Keep only last 10 entries
+            while (timeline.children.length > 10) {
+                timeline.removeChild(timeline.lastChild);
+            }
+            
+            // Add to history array
+            emotionHistory.unshift({emotion, time: new Date()});
+            if (emotionHistory.length > 10) {
+                emotionHistory.pop();
+            }
+        }
+
+        function updateMetrics(timing) {
+            const metricsSection = document.getElementById('metricsSection');
+            const emotionTime = document.getElementById('emotionTime');
+            const processingTime = document.getElementById('processingTime');
+            const totalTime = document.getElementById('totalTime');
+            
+            if (timing) {
+                metricsSection.style.display = 'block';
+                emotionTime.textContent = `${timing.emotion_detection}ms`;
+                processingTime.textContent = `${timing.image_manipulation}ms`;
+                totalTime.textContent = `${timing.total}ms`;
+            }
+        }
 
         function startManipulation() {
             const imageElement = document.getElementById('image-to-manipulate');
             const filename = imageElement.getAttribute('data-filename');
+            const liveIndicator = document.getElementById('liveIndicator');
+            const startBtn = document.getElementById('startButton');
+            const stopBtn = document.getElementById('stopButton');
+            
+            originalImageSrc = imageElement.src;
             socket = io();
+            isProcessing = true;
+
+            showLoader(true, 'Connecting...', 'Establishing connection to server');
+            updateStatus('Connecting to emotion detection system...');
+
+            // Update UI
+            liveIndicator.style.display = 'flex';
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
 
             socket.on('connect', function() {
                 console.log('WebSocket connection established');
-                socket.emit('emotion-detection', { action: 'start',var:'T', filename: filename });
+                showLoader(true, 'Detecting Emotions...', 'Analyzing facial expressions');
+                updateStatus('Connected! Starting emotion detection...', 'success');
+                socket.emit('emotion-detection', { action: 'start', var:'T', filename: filename });
             });
 
             socket.on('update', function(data) {
-                imageElement.src = data.image_src;
+                console.log('Received update:', {
+                    emotion: data.emotion,
+                    hasImage: !!data.image_src,
+                    imageLength: data.image_src ? data.image_src.length : 0,
+                    imageStart: data.image_src ? data.image_src.substring(0, 50) : 'none'
+                });
+                
+                showLoader(false);
+                
+                // Validate base64 image data
+                if (data.image_src && data.image_src.startsWith('data:image/')) {
+                    // Force image reload by adding timestamp
+                    imageElement.onload = function() {
+                        console.log('Image loaded successfully');
+                        imageElement.classList.remove('image-loading');
+                    };
+                    
+                    imageElement.onerror = function() {
+                        console.error('Failed to load manipulated image');
+                        updateStatus('Failed to display manipulated image', 'error');
+                    };
+                    
+                    imageElement.classList.add('image-loading');
+                    imageElement.src = data.image_src;
+                    
+                    updateEmotion(data.emotion);
+                } else {
+                    console.error('Invalid image data received:', data.image_src ? 'Invalid format' : 'No image data');
+                    updateStatus('Invalid image data received', 'error');
+                }
+                
+                if (data.timing) {
+                    updateMetrics(data.timing);
+                }
             });
 
-            socket.on('done', function() {
-                console.log('Emotion detection completed');
-                setTimeout(() => {
-                    console.log('Starting image manipulation...');
-                    socket.emit('start-manipulation');
-                }, 5000); // Start image manipulation after 10 seconds
+            // Add test message handler for debugging
+            socket.on('test-message', function(data) {
+                console.log('Test message received:', data.message);
+                updateStatus(`Debug: ${data.message}`, 'info');
+            });
+
+            socket.on('done', function(data) {
+                console.log('Emotion detection completed', data);
+                updateStatus(`Processing completed! ${data.iterations || 0} iterations processed.`, 'success');
+                showLoader(false);
+            });
+
+            socket.on('disconnect', function() {
+                console.log('WebSocket connection closed');
+                handleDisconnection();
+            });
+
+            socket.on('error', function(err) {
+                console.error('Socket error:', err);
+                updateStatus(`Error: ${err.message || 'Connection failed'}`, 'error');
+                showLoader(false);
+                handleDisconnection();
             });
         }
 
-    function stopManipulation() {
-        socket.emit('emotion-detection', { action: 'stop', var:'F', filename: '{{ filename }}'});
-        console.log('Manipulation stopped');
-        window.location.href = '/';  // Redirect to the index page
-    }
-</script>
-    
-</head>
-<body>
-    <h1>Manipulating Image</h1>
-    <img id="image-to-manipulate" src="/uploads/{{ filename }}" data-filename="{{ filename }}" alt="Image to Manipulate" style="max-width: 100%;">
-    <br>
-    <button onclick="startManipulation()">Start Manipulation</button>
-    <button onclick="stopManipulation()">End</button>
+        function stopManipulation() {
+            if (socket) {
+                // Send stop signal first
+                socket.emit('emotion-detection', { 
+                    action: 'stop', 
+                    var:'F', 
+                    filename: document.getElementById('image-to-manipulate').getAttribute('data-filename') 
+                });
+                
+                // Force disconnect after a short delay
+                setTimeout(() => {
+                    if (socket) {
+                        socket.disconnect();
+                    }
+                }, 1000);
+            }
+            
+            handleDisconnection();
+            updateStatus('Manipulation stopped. Camera access released.', 'info');
+            
+            // Add a force stop as backup
+            setTimeout(() => {
+                fetch('/force-stop/' + (socket ? socket.id : 'unknown'))
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Force stop response:', data);
+                    })
+                    .catch(error => {
+                        console.error('Force stop failed:', error);
+                    });
+            }, 2000);
+            
+            // Redirect after ensuring everything is stopped
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 3000);
+        }
+
+        function handleDisconnection() {
+            const liveIndicator = document.getElementById('liveIndicator');
+            const startBtn = document.getElementById('startButton');
+            const stopBtn = document.getElementById('stopButton');
+            const imageElement = document.getElementById('image-to-manipulate');
+            
+            isProcessing = false;
+            liveIndicator.style.display = 'none';
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            showLoader(false);
+            
+            if (originalImageSrc) {
+                imageElement.src = originalImageSrc;
+            }
+            
+            // Force close any remaining camera access
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({video: true})
+                    .then(stream => {
+                        stream.getTracks().forEach(track => track.stop());
+                    })
+                    .catch(() => {
+                        // Ignore errors, just trying to clean up
+                    });
+            }
+        }
+
+        // Add a test function to verify image manipulation
+        function testImageManipulation() {
+            const filename = document.getElementById('image-to-manipulate').getAttribute('data-filename');
+            
+            fetch(`/test-manipulation/${filename}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Test manipulation result:', data);
+                    if (data.success) {
+                        updateStatus(`Test successful! Base64 length: ${data.base64_length}`, 'success');
+                    } else {
+                        updateStatus(`Test failed: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Test failed:', error);
+                    updateStatus('Test manipulation failed', 'error');
+                });
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            originalImageSrc = document.getElementById('image-to-manipulate').src;
+            updateStatus('Ready to start! Click "Start Expression" to begin real-time emotion detection.');
+            
+            // Add test button for debugging (remove in production)
+            if (window.location.search.includes('debug=true')) {
+                const controls = document.querySelector('.controls');
+                const testBtn = document.createElement('button');
+                testBtn.textContent = 'Test Manipulation';
+                testBtn.className = 'control-btn btn-start';
+                testBtn.onclick = testImageManipulation;
+                controls.appendChild(testBtn);
+            }
+        };
+
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            if (socket && isProcessing) {
+                socket.emit('emotion-detection', { action: 'stop' });
+                socket.disconnect();
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                if (!isProcessing) {
+                    startManipulation();
+                } else {
+                    stopManipulation();
+                }
+            }
+            if (e.key === 'Escape') {
+                if (isProcessing) {
+                    stopManipulation();
+                }
+            }
+            // Emergency stop with Ctrl+Shift+S
+            if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+                e.preventDefault();
+                if (isProcessing) {
+                    updateStatus('Emergency stop initiated...', 'error');
+                    if (socket) {
+                        socket.disconnect();
+                    }
+                    handleDisconnection();
+                    fetch('/force-stop/' + (socket ? socket.id : 'unknown'));
+                }
+            }
+        });
+
+        // Add visibility change handler to stop when tab is hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && isProcessing) {
+                console.log('Tab hidden, stopping manipulation');
+                stopManipulation();
+            }
+        });
+    </script>
 </body>
 </html>
